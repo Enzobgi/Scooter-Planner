@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f4f2eb">
+  <title>Voltway — Itinéraires pour trottinettes électriques</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIINfQJty0DI+MNNrXT8t2P8T6d0uFNh5o=" crossorigin="">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="noise"></div>
+  <header class="topbar">
+    <a class="brand" href="#" aria-label="Accueil Voltway">
+      <span class="brand-mark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 2.5 5.8 13.1h5.8l-1.1 8.4 8.1-11h-5.4l1.5-8Z"/></svg></span>
+      <span>voltway</span>
+    </a>
+    <nav>
+      <a href="#planificateur">Planifier</a>
+      <a href="guidance.html">Guidage</a>
+      <a href="#pourquoi">Pourquoi Voltway ?</a>
+    </nav>
+    <button class="icon-button" id="themeButton" aria-label="Changer de thème">
+      <svg viewBox="0 0 24 24"><path d="M12 3v2m0 14v2M3 12h2m14 0h2M5.6 5.6 7 7m10 10 1.4 1.4m0-12.8L17 7M7 17l-1.4 1.4M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z"/></svg>
+    </button>
+  </header>
+
+  <main>
+    <section class="hero" id="pourquoi">
+      <div class="eyebrow"><span></span> La ville, à votre rythme</div>
+      <h1>Votre trajet.<br><em>Version trottinette.</em></h1>
+      <p>Enfin un GPS qui comprend votre deux-roues. Des itinéraires plus sûrs, plus fluides et vraiment adaptés aux trottinettes électriques.</p>
+      <a class="primary-cta" href="#planificateur">Planifier mon trajet <span>↗</span></a>
+      <div class="hero-stats">
+        <div><strong>GPS</strong><span>routes adaptées</span></div>
+        <div><strong>Météo</strong><span>alertes adhérence</span></div>
+        <div><strong>Guidage</strong><span>sens de navigation</span></div>
+      </div>
+      <div class="hero-visual" aria-hidden="true">
+        <div class="sun"></div>
+        <svg class="scooter-art" viewBox="0 0 520 320">
+          <path class="trail" d="M-10 270C120 230 154 300 278 260s116-74 252-37"/>
+          <circle class="wheel" cx="168" cy="252" r="42"/><circle class="wheel" cx="376" cy="252" r="42"/>
+          <path class="scooter" d="M168 252h145c14 0 23-5 29-17l54-126m-17 3 40-12M299 238 271 82h-32m41 98h79"/>
+          <path class="accent" d="m286 154 28-32-10 30h20l-30 35 10-33h-18Z"/>
+        </svg>
+        <div class="float-card card-safe"><b>--</b><span>Score sécurité</span></div>
+        <div class="float-card card-battery"><span class="battery-icon">▰</span><b>--%</b><span>Batterie estimée</span></div>
+      </div>
+    </section>
+
+    <section class="planner" id="planificateur">
+      <div class="planner-panel">
+        <div class="section-heading">
+          <span class="step-number">01</span>
+          <div><p>OÙ ALLEZ-VOUS ?</p><h2>Préparez votre trajet</h2></div>
+        </div>
+
+        <form id="routeForm">
+          <div class="route-inputs">
+            <div class="route-line"><i class="dot start"></i><span></span><i class="dot end"></i></div>
+            <label class="address-field"><span>Départ</span><input id="startInput" autocomplete="off" placeholder="Saisissez votre point de départ" required><div class="suggestions" id="startSuggestions"></div></label>
+            <button type="button" class="swap-button" id="swapButton" aria-label="Inverser le trajet">⇅</button>
+            <label class="address-field"><span>Destination</span><input id="endInput" autocomplete="off" placeholder="Saisissez votre destination" required><div class="suggestions" id="endSuggestions"></div></label>
+          </div>
+
+          <div class="preference-title"><span>Préférences de trajet</span><button type="button" id="resetPrefs">Réinitialiser</button></div>
+          <div class="preferences">
+            <label class="pref active"><input type="checkbox" id="safePref" checked><span class="pref-icon">♢</span><b>Plus sûr</b><small>Rues calmes</small></label>
+            <label class="pref active"><input type="checkbox" id="bikePref" checked><span class="pref-icon">⌁</span><b>Pistes cyclables</b><small>À privilégier</small></label>
+            <label class="pref"><input type="checkbox" id="slopePref"><span class="pref-icon">⌁</span><b>Moins de pente</b><small>Économise la batterie</small></label>
+          </div>
+          <button class="calculate-button" type="submit"><span>Calculer l'itinéraire</span><span class="arrow">→</span></button>
+        </form>
+        <p class="demo-note" id="dataNote"><span>i</span> Recherche d'adresses via OpenStreetMap/Photon, itinéraire via Valhalla.</p>
+      </div>
+
+      <div class="map-wrap">
+        <div class="map" id="map">
+          <div id="realMap" class="real-map" aria-label="Carte réelle OpenStreetMap"></div>
+          <div class="map-status" id="mapStatus">Saisissez un départ et une destination, puis calculez.</div>
+          <div class="map-controls"><button aria-label="Zoomer">+</button><button aria-label="Dézoomer">−</button></div>
+          <div class="map-chips"><button class="active" data-layer="all">Tout</button><button data-layer="charge">⚡ Recharge</button><button data-layer="parking">P Parking</button></div>
+          <div class="map-legend"><span><i class="legend-route"></i> Itinéraire recommandé</span><span><i class="legend-bike"></i> Piste cyclable</span></div>
+        </div>
+        <div class="route-summary" id="routeSummary">
+          <div class="summary-top"><span class="recommended">RECOMMANDÉ</span><span class="live-dot">● Trafic fluide</span></div>
+          <div class="summary-main"><div><strong id="duration">--</strong><span>min</span><small id="arrival">Calculez un trajet</small></div><div><strong id="distance">--</strong><span>km</span><small>Distance totale</small></div><div><strong id="battery">--</strong><span>%</span><small>Batterie requise</small></div><div class="score"><strong id="score">--</strong><span>/100</span><small>Score sécurité</small></div></div>
+          <div class="route-details">
+            <span><i class="green-check">✓</i> En attente d'un itinéraire</span>
+            <span><i class="green-check">✓</i> Météo analysée après calcul</span>
+            <span class="warning-text"><i>!</i> Aucune alerte pour le moment</span>
+          </div>
+          <button class="guidance-launch" id="startGuidanceButton" type="button">Démarrer le guidage actif <span>➜</span></button>
+        </div>
+      </div>
+    </section>
+
+    <section class="difference">
+      <div class="eyebrow"><span></span> POURQUOI VOLTWAY</div>
+      <h2>Les autres voient une route.<br><em>Nous voyons votre trajet.</em></h2>
+      <div class="feature-grid">
+        <article><span>01</span><div class="feature-icon">⌁</div><h3>Des routes qui roulent</h3><p>Nous privilégions les pistes cyclables, les rues calmes et les revêtements confortables.</p></article>
+        <article><span>02</span><div class="feature-icon">⌁</div><h3>Votre batterie compte</h3><p>Chaque trajet estime l'autonomie nécessaire selon la distance, le relief et votre profil.</p></article>
+        <article><span>03</span><div class="feature-icon">♢</div><h3>La sécurité d'abord</h3><p>Zones interdites, carrefours difficiles et dangers signalés avant même votre départ.</p></article>
+      </div>
+    </section>
+  </main>
+  <footer><a class="brand" href="#"><span class="brand-mark">ϟ</span><span>voltway</span></a><p>Conçu pour ceux qui choisissent la ville autrement.</p><span>Prototype fonctionnel · 2026</span></footer>
+  <div class="toast" id="toast"><b>Itinéraire recalculé</b><span>Votre parcours est prêt.</span></div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="app.js"></script>
+</body>
+</html>

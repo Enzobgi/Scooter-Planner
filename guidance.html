@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#17221f">
+  <title>Voltway — Guidage actif</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="guidance-page">
+  <header class="topbar guidance-topbar">
+    <a class="brand" href="index.html#planificateur" aria-label="Retour au planificateur Voltway">
+      <span class="brand-mark">ϟ</span>
+      <span>voltway</span>
+    </a>
+    <nav>
+      <a href="index.html#planificateur">Planifier</a>
+      <a href="guidance.html">Guidage</a>
+    </nav>
+    <a class="back-link" href="index.html#planificateur">Modifier l'itinéraire</a>
+  </header>
+
+  <main>
+    <section class="guidance guidance-standalone" id="guidage">
+      <div class="guidance-copy">
+        <div class="eyebrow"><span></span> GUIDAGE ACTIF</div>
+        <h2>La route reste devant vous.<br><em>Pas bloquée au nord.</em></h2>
+        <p>Cette page utilise votre géolocalisation pour suivre l'itinéraire. La flèche reste vers le haut et la carte pivote selon votre cap ou le prochain segment à suivre.</p>
+        <div class="guidance-actions">
+          <button class="primary-cta guidance-action" id="activateGuidanceButton" type="button">Activer ma position <span>↗</span></button>
+        </div>
+        <p class="guidance-note" id="guidanceNote">Chargement du dernier itinéraire...</p>
+      </div>
+      <div class="phone-nav" aria-label="Guidage actif orienté dans le sens de navigation">
+        <div class="phone-status">
+          <span id="guidanceMode">En attente</span>
+          <b id="guidanceSpeed">0 km/h</b>
+        </div>
+        <div class="nav-viewport">
+          <div class="nav-world" id="navWorld">
+            <div class="nav-grid"></div>
+            <svg class="nav-route" id="navRouteSvg" viewBox="0 0 320 420" preserveAspectRatio="none">
+              <path id="navRoutePath" d=""/>
+            </svg>
+            <div class="nav-compass" id="navCompass">N</div>
+          </div>
+          <div class="user-arrow">
+            <span></span>
+          </div>
+        </div>
+        <div class="instruction-card">
+          <span id="maneuverDistance">-- m</span>
+          <strong id="maneuverText">Aucun itinéraire chargé</strong>
+          <small id="bearingText">Cap navigation : --°</small>
+        </div>
+        <div class="steps-card">
+          <div class="steps-heading">
+            <span>Guidage pas à pas</span>
+            <small id="stepsCount">0 étape</small>
+          </div>
+          <ol id="stepsList" class="steps-list">
+            <li>Calculez un itinéraire depuis le planificateur.</li>
+          </ol>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast"><b>Guidage</b><span>Prêt.</span></div>
+  <script src="guidance.js"></script>
+</body>
+</html>
