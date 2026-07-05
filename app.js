@@ -68,6 +68,27 @@ function escapeHtml(value) {
   })[char]);
 }
 
+async function fetchJson(url, message, options = {}) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12000);
+
+  try {
+    const response = await fetch(url.toString(), {
+      ...options,
+      headers: { "Accept": "application/json", ...(options.headers || {}) },
+      signal: controller.signal
+    });
+    if (!response.ok) throw new Error(`${message} (${response.status})`);
+    return response.json();
+  } catch (error) {
+    if (error.name === "AbortError") throw new Error(`${message} : délai dépassé.`);
+    if (error instanceof TypeError) throw new Error(`${message} : service inaccessible depuis le navigateur.`);
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 function addressLabel(properties) {
   return [
     properties.name,
@@ -124,6 +145,8 @@ function renderSuggestions(input, list, results) {
 }
 
 async function searchAddresses(query) {
+  const results = [];
+
   const url = new URL("https://photon.komoot.io/api/");
   url.searchParams.set("q", query);
   url.searchParams.set("limit", "6");
@@ -131,10 +154,27 @@ async function searchAddresses(query) {
   url.searchParams.set("lat", BRUSSELS[0]);
   url.searchParams.set("lon", BRUSSELS[1]);
 
-  const response = await fetch(url.toString(), { headers: { "Accept": "application/json" } });
-  if (!response.ok) throw new Error("La recherche d'adresses n'a pas répondu.");
-  const data = await response.json();
-  return (data.features || []).filter((feature) => feature.geometry?.coordinates?.length === 2);
+  try {
+    const data = await fetchJson(url, "La recherche d'adresses Photon n'a pas répondu");
+    results.push(...(data.features || []).filter((feature) => feature.geometry?.coordinates?.length === 2));
+  } catch (error) {
+    // Fallback below.
+  }
+
+  if (results.length) return results;
+
+  const fallback = await searchAddressesWithNominatim(query, 6);
+  return fallback.map((place) => ({
+    geometry: { coordinates: [Number(place.lon), Number(place.lat)] },
+    properties: {
+      name: place.name || place.display_name?.split(",")[0],
+      street: place.address?.road,
+      housenumber: place.address?.house_number,
+      city: place.address?.city || place.address?.town || place.address?.village || place.address?.municipality,
+      postcode: place.address?.postcode,
+      country: place.address?.country
+    }
+  }));
 }
 
 function setupAddressSearch(inputSelector, listSelector) {
@@ -313,24 +353,39 @@ async function geocode(query) {
   const normalized = query.toLowerCase().includes("bruxelles") || query.toLowerCase().includes("brussels")
     ? query
     : `${query}, Bruxelles, Belgique`;
-  const url = new URL("https://nominatim.openstreetmap.org/search");
-  url.searchParams.set("format", "jsonv2");
-  url.searchParams.set("limit", MAX_GEOCODE_RESULTS);
-  url.searchParams.set("accept-language", "fr");
-  url.searchParams.set("countrycodes", "be");
-  url.searchParams.set("q", normalized);
 
-  const response = await fetch(url.toString(), {
-    headers: { "Accept": "application/json" }
-  });
-  if (!response.ok) throw new Error("Le géocodage n'a pas répondu.");
-  const results = await response.json();
+  try {
+    const photonResults = await searchAddresses(normalized);
+    if (photonResults.length) {
+      const result = photonResults[0];
+      return {
+        label: addressLabel(result.properties) || normalized,
+        lat: Number(result.geometry.coordinates[1]),
+        lon: Number(result.geometry.coordinates[0])
+      };
+    }
+  } catch (error) {
+    // Fallback below.
+  }
+
+  const results = await searchAddressesWithNominatim(normalized, MAX_GEOCODE_RESULTS);
   if (!results.length) throw new Error(`Adresse introuvable : ${query}`);
   return {
     label: results[0].display_name,
     lat: Number(results[0].lat),
     lon: Number(results[0].lon)
   };
+}
+
+async function searchAddressesWithNominatim(query, limit) {
+  const url = new URL("https://nominatim.openstreetmap.org/search");
+  url.searchParams.set("format", "jsonv2");
+  url.searchParams.set("limit", limit);
+  url.searchParams.set("accept-language", "fr");
+  url.searchParams.set("countrycodes", "be");
+  url.searchParams.set("addressdetails", "1");
+  url.searchParams.set("q", query);
+  return fetchJson(url, "Le géocodage Nominatim n'a pas répondu");
 }
 
 async function resolveAddress(inputId) {
@@ -340,6 +395,19 @@ async function resolveAddress(inputId) {
 }
 
 async function fetchRoute(start, end) {
+  const valhallaRoute = await fetchValhallaRoute(start, end).catch(() => null);
+  if (valhallaRoute) return valhallaRoute;
+
+  const osrmBikeRoute = await fetchOsrmBikeRoute(start, end).catch(() => null);
+  if (osrmBikeRoute) return osrmBikeRoute;
+
+  const osrmFootRoute = await fetchOsrmRoute(start, end, "foot").catch(() => null);
+  if (osrmFootRoute) return osrmFootRoute;
+
+  throw new Error("Impossible de joindre les services d'itinéraire. Réessayez ou vérifiez votre connexion.");
+}
+
+async function fetchValhallaRoute(start, end) {
   const request = {
     locations: [
       { lat: start.lat, lon: start.lon, type: "break" },
@@ -357,17 +425,36 @@ async function fetchRoute(start, end) {
     shape_format: "geojson"
   };
   const url = `https://valhalla1.openstreetmap.de/route?json=${encodeURIComponent(JSON.stringify(request))}`;
-  const response = await fetch(url, {
-    headers: { "Accept": "application/json" }
-  });
-  if (!response.ok) throw new Error("Le moteur d'itinéraire n'a pas répondu.");
-  const data = await response.json();
+  const data = await fetchJson(url, "Le moteur Valhalla n'a pas répondu");
   if (!data.trip?.summary || !data.trip?.legs?.length) throw new Error("Aucun itinéraire réel trouvé.");
   return {
     distance: data.trip.summary.length * 1000,
     duration: data.trip.summary.time,
     line: normalizeRouteLine(data.trip.legs[0].shape),
     source: "Valhalla / OpenStreetMap"
+  };
+}
+
+async function fetchOsrmBikeRoute(start, end) {
+  return fetchOsrmRoute(start, end, "bike");
+}
+
+async function fetchOsrmRoute(start, end, profile) {
+  const coords = `${start.lon},${start.lat};${end.lon},${end.lat}`;
+  const base = profile === "bike" ? "https://routing.openstreetmap.de/routed-bike/route/v1/bike" : "https://routing.openstreetmap.de/routed-foot/route/v1/foot";
+  const url = new URL(`${base}/${coords}`);
+  url.searchParams.set("overview", "full");
+  url.searchParams.set("geometries", "geojson");
+  url.searchParams.set("alternatives", "false");
+  url.searchParams.set("steps", "false");
+  const data = await fetchJson(url, `Le moteur OSRM ${profile} n'a pas répondu`);
+  if (data.code !== "Ok" || !data.routes?.length) throw new Error("Aucun itinéraire réel trouvé.");
+
+  return {
+    distance: data.routes[0].distance,
+    duration: data.routes[0].duration,
+    line: normalizeRouteLine(data.routes[0].geometry),
+    source: profile === "bike" ? "OSRM vélo / OpenStreetMap" : "OSRM piéton / OpenStreetMap"
   };
 }
 
